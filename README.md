@@ -1,1 +1,1 @@
-"Gait Processing Application" 
+Gait Processing Application 
