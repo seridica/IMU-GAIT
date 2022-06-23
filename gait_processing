@@ -3,11 +3,7 @@
 
 import numpy as np
 import scipy.io as sio
-from scipy.signal import butter, lfilter, freqz
-from os.path import dirname, join as pjoin
 import matplotlib.pyplot as plt
-import h5py
-
 
 
 ##Change the following depending on data
