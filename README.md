@@ -1,2 +1,1 @@
-"# IMU-GAIT" 
-"# IMU-GAIT" 
+"Gait Processing Application" 
