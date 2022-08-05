@@ -1,8 +1,6 @@
-#This version of the code contains bugs.
-
-
 import numpy as np
 import scipy.io as sio
+from scipy import signal
 import matplotlib.pyplot as plt
 
 
@@ -74,20 +72,20 @@ gyr_right = gyr_right[:, :minlen]
 def butter_lowpass(cutoff, fs, order):
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
-    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    b, a = signal.butter(order, normal_cutoff, btype='low', analog=False)
     return b, a
 
 def butter_lowpass_filter(data, cutoff, fs, order):
     b, a = butter_lowpass(cutoff, fs, order=order)
-    y = lfilter(b, a, data)
+    y = signal.filtfilt(b, a, data)
     return y
 
-filtCutOff = 200
+filtCutOff = 200.0
 cutoffFrequency = (2*filtCutOff)/(1/samplePeriod)
 order = 1
 acc_left = butter_lowpass_filter(acc_left, filtCutOff, fs, order) # filter left foot
 
-filtCutOff = 200
+filtCutOff = 200.0
 cutoffFrequency = (2*filtCutOff)/(1/samplePeriod)
 order = 1
 acc_right = butter_lowpass_filter(acc_right, filtCutOff, fs, order) # filter right foot
@@ -113,52 +111,52 @@ acc_mag_right = acc_mag_right - avg_right
 #Determine stationary periods - accel mag zero velocity
 
 stationaryThreshold = 0.25
-stationary_left = abs(acc_mag_left) < stationaryThreshold
-stationary_right = abs(acc_mag_right) < stationaryThreshold
+stationary_left = 1*(abs(acc_mag_left) < stationaryThreshold)
+stationary_right = 1*(abs(acc_mag_right) < stationaryThreshold)
 
 #left foot
-stepStart_left = np.argwhere([0, np.diff(stationary_left)] == -1) #Come back here later
-stepEnd_left = np.argwhere([0, np.diff(stationary_left)] == 1)
+stepStart_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == -1) 
+stepEnd_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == 1)
 
 adjustmentWindow = 150
 
-for i in range(0,len(stepStart_left)-2): #Be careful with the indexing here. I am not sure.
-    if (stepEnd_left(i) - stepStart_left(i) < adjustmentWindow):
-        for j in range(stepStart_left(i),stepEnd_left(i)):
+for i in range(0,len(stepStart_left)-2): 
+    if (stepEnd_left[i,0] - stepStart_left[i,0] < adjustmentWindow):
+        for j in range(stepStart_left[i,0],stepEnd_left[i,0]):
             stationary_left[j] = 1
     
 
-stepStart_left = np.argwhere([0, np.diff(stationary_left)] == -1) #later
-stepEnd_left = np.argwhere([0, np.diff(stationary_left)] == 1)
+stepStart_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == -1) 
+stepEnd_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == 1)
 
-for i in range(0,len(stepStart_left)-2): #Be careful with the indexing here. I am not sure.
-    if (stepStart_left(i+1) - stepEnd_left(i) < adjustmentWindow):
-        for j in range(stepEnd_left(i),stepStart_left(i+1)):
+for i in range(0,len(stepStart_left)-2): 
+    if (stepStart_left[i+1,0] - stepEnd_left[i,0] < adjustmentWindow):
+        for j in range(stepEnd_left[i,0],stepStart_left[i+1,0]):
             stationary_left[j] = 0
 
 
-stepStart_left = np.argwhere([0, np.diff(stationary_left)] == -1) #later
-stepEnd_left = np.argwhere([0, np.diff(stationary_left)] == 1)
+stepStart_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == -1) 
+stepEnd_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == 1)
 
 #right foot
-stepStart_right = np.argwhere([0, np.diff(stationary_right)] == -1) #later
-stepEnd_right = np.argwhere([0, np.diff(stationary_right)] == 1)
+stepStart_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == -1) 
+stepEnd_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == 1) 
 
-for i in range(0,len(stepStart_right)-2): #Be careful with the indexing here. I am not sure.
-    if (stepEnd_right(i) - stepStart_right(i) < adjustmentWindow): 
-        for j in range(stepStart_right(i),stepEnd_right(i)):
+for i in range(0,len(stepStart_right)-2): 
+    if (stepEnd_right[i,0] - stepStart_right[i,0] < adjustmentWindow): 
+        for j in range(stepStart_right[i,0],stepEnd_right[i,0]):
             stationary_right[j] = 1
 
-stepStart_right = np.argwhere([0, np.diff(stationary_right)] == -1) #later
-stepEnd_right = np.argwhere([0, np.diff(stationary_right)] == 1)
+stepStart_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == -1) 
+stepEnd_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == 1) 
 
 for i in range (0,len(stepStart_right)-2):
-    if (stepStart_right(i+1) - stepEnd_right(i) < adjustmentWindow):
-        for j in range(stepEnd_right(i),stepStart_right(i+1)):
+    if (stepStart_right[i+1,0] - stepEnd_right[i,0] < adjustmentWindow):
+        for j in range(stepEnd_right[i,0],stepStart_right[i+1,0]):
             stationary_right[j] = 0
 
-stepStart_right = np.argwhere([0, np.diff(stationary_right)] == -1) #later
-stepEnd_right = np.argwhere([0, np.diff(stationary_right)] == 1)
+stepStart_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == -1) 
+stepEnd_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == 1) 
 
 #linear Acceleration Plot
 fig, (ax1, ax2) = plt.subplots(2)
@@ -185,38 +183,38 @@ ax2.legend(['acc mag', 'stationary', 'threshold'])
 #Determine stationary periods - gyr mag zero velocity
 
 stationaryThreshold2 = 50
-stationary_left2 = abs(gyr_mag_left) < stationaryThreshold2
-stationary_right2 = abs(gyr_mag_right) < stationaryThreshold2
+stationary_left2 = 1*(abs(gyr_mag_left) < stationaryThreshold2)
+stationary_right2 = 1*(abs(gyr_mag_right) < stationaryThreshold2)
 
 #left foot
-stepStart_left2 = np.argwhere([0, np.diff(stationary_left2)] == -1) #later
-stepEnd_left2 = np.argwhere([0, np.diff(stationary_left2)] == 1)
+stepStart_left2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left2) ) ) == -1) 
+stepEnd_left2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left2) ) ) == 1)
 
 for i in range(0,len(stepStart_left2)-2):
-    if (stepEnd_left2(i) - stepStart_left2(i) < adjustmentWindow):
-        for j in range(stepStart_left2(i),stepEnd_left2(i)):
+    if (stepEnd_left2[i,0] - stepStart_left2[i,0] < adjustmentWindow):
+        for j in range(stepStart_left2[i,0],stepEnd_left2[i,0]):
             stationary_left2[j] = 1
-    if (stepStart_left2(i+1) - stepEnd_left2(i) < adjustmentWindow):
-        for j in range(stepEnd_left2(i),stepStart_left2(i+1)):
+    if (stepStart_left2[i+1,0] - stepEnd_left2[i,0] < adjustmentWindow):
+        for j in range(stepEnd_left2[i,0],stepStart_left2[i+1,0]):
             stationary_left2[j] = 1
 
-stepStart_left2 = np.argwhere([0, np.diff(stationary_left2)] == -1) #later
-stepEnd_left2 = np.argwhere([0, np.diff(stationary_left2)] == 1)
+stepStart_left2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left2) ) ) == -1) 
+stepEnd_left2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left2) ) ) == 1)
 
 #right foot
-stepStart_right2 = np.argwhere([0, np.diff(stationary_right2)] == -1)
-stepEnd_right2 = np.argwhere([0, np.diff(stationary_right2)] == 1)
+stepStart_right2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_right2) ) ) == -1) 
+stepEnd_right2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_right2) ) ) == 1)
 
 for i in range(0,len(stepStart_right2)-2):
-    if (stepEnd_right2(i) - stepStart_right2(i) < adjustmentWindow):
-        for j in range(stepStart_right2(i),stepEnd_right2(i)):
+    if (stepEnd_right2[i,0] - stepStart_right2[i,0] < adjustmentWindow):
+        for j in range(stepStart_right2[i,0],stepEnd_right2[i,0]):
             stationary_right2[j] = 1
-    if (stepStart_right2(i+1) - stepEnd_right2(i) < adjustmentWindow):
-        for j in range(stepEnd_right2(i),stepStart_right2(i+1)):
+    if (stepStart_right2[i+1,0] - stepEnd_right2[i,0] < adjustmentWindow):
+        for j in range(stepEnd_right2[i,0],stepStart_right2[i+1,0]):
             stationary_right2[j] = 1
 
-stepStart_right2 = np.argwhere([0, np.diff(stationary_right2)] == -1) #later
-stepEnd_right2 = np.argwhere([0, np.diff(stationary_right2)] == 1)
+stepStart_right2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_right2) ) ) == -1) 
+stepEnd_right2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_right2) ) ) == 1)
 
 #angular rate energy graph
 fig, (ax3, ax4) = plt.subplots(2)
@@ -245,14 +243,14 @@ ax4.legend(['acc mag', 'stationary', 'threshold'])
 #Calculation of Step Counts
 
 #linear acceleration method
-leftSteps1 = sum(np.diff(stationary_left)==1)
-rightSteps1 = sum(np.diff(stationary_right)==1)
-totalSteps1 = sum(np.diff(stationary_left)==1) + sum(np.diff(stationary_right)==1)
+leftSteps1 = sum(np.diff(stationary_left)==1)-1
+rightSteps1 = sum(np.diff(stationary_right)==1)-1
+totalSteps1 = sum(np.diff(stationary_left)==1) + sum(np.diff(stationary_right)==1)-2
 
 #angular velocity energy method
-leftSteps2 = sum(np.diff(stationary_left2)==1)
-rightSteps2 = sum(np.diff(stationary_right2)==1)
-totalSteps2 = sum(np.diff(stationary_left2)==1) + sum(np.diff(stationary_right2)==1)
+leftSteps2 = sum(np.diff(stationary_left2)==1)-1
+rightSteps2 = sum(np.diff(stationary_right2)==1)-1
+totalSteps2 = sum(np.diff(stationary_left2)==1) + sum(np.diff(stationary_right2)==1)-2
 
 print("Linear Acceleration Method")
 print("Left Steps:", leftSteps1)
