@@ -4,262 +4,278 @@ from scipy import signal
 import matplotlib.pyplot as plt
 
 
-##Change the following depending on data
-dataFile = sio.loadmat('pilot_data.mat')
-comp_array = dataFile['normal_walk_data']
-less_comp = comp_array[0]
-less_comp = less_comp[0]
-imu1 = less_comp[0]
-imu2 = less_comp[1]
+def load_data():
+    dataFile = sio.loadmat('pilot_data.mat') #Change the name depending on data
+    comp_array = dataFile['normal_walk_data'] #Change the name depending on data
+    less_comp = comp_array[0]
+    less_comp = less_comp[0]
+    imu_left = less_comp[0]
+    imu_right = less_comp[1]
+    return imu_left, imu_right
 
 
-##Define class for data objects
-class Data:
-    def __init__(data, t, lin_acc, ang_vel):
-        data.t = t
-        data.lin_acc = lin_acc
-        data.ang_vel = ang_vel
+def organize_data(imu_left, imu_right):
+    ##Define class for data objects
+    class Data:
+        def __init__(data, t, lin_acc, ang_vel):
+            data.t = t
+            data.lin_acc = lin_acc
+            data.ang_vel = ang_vel
+    
+    data_left = Data(imu_left[:, 0], imu_left[:, 1:4], imu_left[:, 4:7])
+    data_right = Data(imu_right[:, 0], imu_right[:, 1:4], imu_right[:, 4:7])
+    
+    time_left = data_left.t
+    time_right = data_right.t
 
-data_left = Data(imu1[:, 0], imu1[:, 1:4], imu1[:, 4:7])
-data_right = Data(imu2[:, 0], imu2[:, 1:4], imu2[:, 4:7])
+    ##Import LEFT foot data
+    accX_left = data_left.lin_acc[:,0]
+    accY_left = data_left.lin_acc[:,1]
+    accZ_left = data_left.lin_acc[:,2]
+    acc_left = np.array([accX_left, accY_left, accZ_left])
+    acc_left = np.divide(acc_left, 9.81) #convert to Gs
+    
+    gyrX_left = data_left.ang_vel[:,0] # angular velocity data of left foot 
+    gyrY_left = data_left.ang_vel[:,1]
+    gyrZ_left = data_left.ang_vel[:,2]
+    gyr_left = np.array([gyrX_left, gyrY_left, gyrZ_left])
+    
+    ##Import RIGHT foot data 
+    accX_right = data_right.lin_acc[:,0] # acceleration data of right foot
+    accY_right = data_right.lin_acc[:,1]
+    accZ_right = data_right.lin_acc[:,2]
+    acc_right = np.array([accX_right, accY_right, accZ_right])
+    acc_right = np.divide(acc_right, 9.81) #convert to Gs
+    
+    gyrX_right = data_right.ang_vel[:,0] # angular velocity data of right foot
+    gyrY_right = data_right.ang_vel[:,1]
+    gyrZ_right = data_right.ang_vel[:,2]
+    gyr_right = np.array([gyrX_right, gyrY_right, gyrZ_right])
 
-fs = 1000
-samplePeriod = 1/fs
-time_left = data_left.t
-time_right = data_right.t
-
-
-##Import LEFT foot data
-accX_left = data_left.lin_acc[:,0]
-accY_left = data_left.lin_acc[:,1]
-accZ_left = data_left.lin_acc[:,2]
-acc_left = np.array([accX_left, accY_left, accZ_left])
-acc_left = np.divide(acc_left, 9.81) #convert to Gs
-
-gyrX_left = data_left.ang_vel[:,0] # angular velocity data of left foot 
-gyrY_left = data_left.ang_vel[:,1]
-gyrZ_left = data_left.ang_vel[:,2]
-gyr_left = np.array([gyrX_left, gyrY_left, gyrZ_left])
-
-
-##Import RIGHT foot data 
-accX_right = data_right.lin_acc[:,0] # acceleration data of right foot
-accY_right = data_right.lin_acc[:,1]
-accZ_right = data_right.lin_acc[:,2]
-acc_right = np.array([accX_right, accY_right, accZ_right])
-acc_right = np.divide(acc_right, 9.81) #convert to Gs
-
-gyrX_right = data_right.ang_vel[:,0] # angular velocity data of right foot
-gyrY_right = data_right.ang_vel[:,1]
-gyrZ_right = data_right.ang_vel[:,2]
-gyr_right = np.array([gyrX_right, gyrY_right, gyrZ_right])
-
-
-##Trim boards to equal length arrays
-acc_right_len = [len(acc_right[0]), len(acc_right[1]), len(acc_right[2])]
-acc_left_len = [len(acc_left[0]), len(acc_left[1]), len(acc_left[2])]
-gyr_right_len = [len(gyr_right[0]), len(gyr_right[1]), len(gyr_right[2])]
-gyr_left_len = [len(gyr_left[0]), len(gyr_left[1]), len(gyr_left[2])]
-
-minlen = min(min(acc_right_len), min(acc_left_len), min(gyr_right_len), min(gyr_left_len))
-acc_left = acc_left[:, :minlen]
-acc_right = acc_right[:, :minlen]
-gyr_left = gyr_left[:, :minlen]
-gyr_right = gyr_right[:, :minlen]
+    ##Trim boards to equal length arrays
+    acc_right_len = [len(acc_right[0]), len(acc_right[1]), len(acc_right[2])]
+    acc_left_len = [len(acc_left[0]), len(acc_left[1]), len(acc_left[2])]
+    gyr_right_len = [len(gyr_right[0]), len(gyr_right[1]), len(gyr_right[2])]
+    gyr_left_len = [len(gyr_left[0]), len(gyr_left[1]), len(gyr_left[2])]
+    
+    minlen = min(min(acc_right_len), min(acc_left_len), min(gyr_right_len), min(gyr_left_len))
+    acc_left = acc_left[:, :minlen]
+    acc_right = acc_right[:, :minlen]
+    gyr_left = gyr_left[:, :minlen]
+    gyr_right = gyr_right[:, :minlen]
+    
+    return acc_left, acc_right, gyr_left, gyr_right, time_left, time_right
 
 
-##LP Filter accelerometer data
-def butter_lowpass(cutoff, fs, order):
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = signal.butter(order, normal_cutoff, btype='low', analog=False)
-    return b, a
-
-def butter_lowpass_filter(data, cutoff, fs, order):
-    b, a = butter_lowpass(cutoff, fs, order=order)
-    y = signal.filtfilt(b, a, data)
-    return y
-
-filtCutOff = 200.0
-cutoffFrequency = (2*filtCutOff)/(1/samplePeriod)
-order = 1
-acc_left = butter_lowpass_filter(acc_left, filtCutOff, fs, order) # filter left foot
-
-filtCutOff = 200.0
-cutoffFrequency = (2*filtCutOff)/(1/samplePeriod)
-order = 1
-acc_right = butter_lowpass_filter(acc_right, filtCutOff, fs, order) # filter right foot
-
-
-##Rotate Accelerations and angular velocities by quaternions 
-
-#compute magnitudes
-acc_mag_left = np.sqrt(np.square(acc_left[0,:]) + np.square(acc_left[1,:]) + np.square(acc_left[2,:]))
-acc_mag_right = np.sqrt(np.square(acc_right[0,:]) + np.square(acc_right[1,:]) + np.square(acc_right[2,:]))
-
-gyr_mag_left = np.sqrt(np.square(gyr_left[0,:]) + np.square(gyr_left[1,:]) + np.square(gyr_left[2,:]))
-gyr_mag_right = np.sqrt(np.square(gyr_right[0,:]) + np.square(gyr_right[1,:]) + np.square(gyr_right[2,:]))
-
-#subtract gravity via calibration from magnitude signal
-avg_left = np.mean(acc_mag_left[:10*fs])
-avg_right = np.mean(acc_mag_right[:10*fs])
-
-acc_mag_left = acc_mag_left - avg_left 
-acc_mag_right = acc_mag_right - avg_right
-
-
-#Determine stationary periods - accel mag zero velocity
-
-stationaryThreshold = 0.25
-stationary_left = 1*(abs(acc_mag_left) < stationaryThreshold)
-stationary_right = 1*(abs(acc_mag_right) < stationaryThreshold)
-
-#left foot
-stepStart_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == -1) 
-stepEnd_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == 1)
-
-adjustmentWindow = 150
-
-for i in range(0,len(stepStart_left)-2): 
-    if (stepEnd_left[i,0] - stepStart_left[i,0] < adjustmentWindow):
-        for j in range(stepStart_left[i,0],stepEnd_left[i,0]):
-            stationary_left[j] = 1
+def filter_acc_data(acc_left, acc_right, fs = 1000, filtCutOff = 200, order = 1):
+    ##LP Filter accelerometer data
+    def butter_lowpass(cutoff, fs, order):
+        nyq = 0.5 * fs
+        normal_cutoff = cutoff / nyq
+        b, a = signal.butter(order, normal_cutoff, btype='low', analog=False)
+        return b, a
+    
+    def butter_lowpass_filter(data, cutoff, fs, order):
+        b, a = butter_lowpass(cutoff, fs, order=order)
+        y = signal.filtfilt(b, a, data)
+        return y
+    
+    acc_left = butter_lowpass_filter(acc_left, filtCutOff, fs, order) # filter left foot
+    acc_right = butter_lowpass_filter(acc_right, filtCutOff, fs, order) # filter right foot
+   
+    return acc_left, acc_right
+    
+    
+def rotate_by_quaternions(acc_left, acc_right, gyr_left, gyr_right): 
+    ##Rotate Accelerations and angular velocities by quaternions 
+    #compute magnitudes
+    acc_mag_left = np.sqrt(np.square(acc_left[0,:]) + np.square(acc_left[1,:]) + np.square(acc_left[2,:]))
+    acc_mag_right = np.sqrt(np.square(acc_right[0,:]) + np.square(acc_right[1,:]) + np.square(acc_right[2,:]))
+    
+    gyr_mag_left = np.sqrt(np.square(gyr_left[0,:]) + np.square(gyr_left[1,:]) + np.square(gyr_left[2,:]))
+    gyr_mag_right = np.sqrt(np.square(gyr_right[0,:]) + np.square(gyr_right[1,:]) + np.square(gyr_right[2,:]))
+    
+    return acc_mag_left, acc_mag_right, gyr_mag_left, gyr_mag_right
     
 
-stepStart_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == -1) 
-stepEnd_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == 1)
-
-for i in range(0,len(stepStart_left)-2): 
-    if (stepStart_left[i+1,0] - stepEnd_left[i,0] < adjustmentWindow):
-        for j in range(stepEnd_left[i,0],stepStart_left[i+1,0]):
-            stationary_left[j] = 0
-
-
-stepStart_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == -1) 
-stepEnd_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == 1)
-
-#right foot
-stepStart_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == -1) 
-stepEnd_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == 1) 
-
-for i in range(0,len(stepStart_right)-2): 
-    if (stepEnd_right[i,0] - stepStart_right[i,0] < adjustmentWindow): 
-        for j in range(stepStart_right[i,0],stepEnd_right[i,0]):
-            stationary_right[j] = 1
-
-stepStart_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == -1) 
-stepEnd_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == 1) 
-
-for i in range (0,len(stepStart_right)-2):
-    if (stepStart_right[i+1,0] - stepEnd_right[i,0] < adjustmentWindow):
-        for j in range(stepEnd_right[i,0],stepStart_right[i+1,0]):
-            stationary_right[j] = 0
-
-stepStart_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == -1) 
-stepEnd_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == 1) 
-
-#linear Acceleration Plot
-fig, (ax1, ax2) = plt.subplots(2)
-fig.suptitle('stationary periods - linear acceleration mag')
-
-ax1.plot(abs(acc_mag_left))
-ax1.plot(stationary_left,'tab:orange')
-ax1.axhline(y=stationaryThreshold, color='black', linestyle='--')
-ax1.set_title('Left stationary periods')
-ax1.set_xlabel('samples')
-ax1.set_ylabel('acceleration magnitude')
-ax1.legend(['acc mag', 'stationary', 'threshold'])
-
-ax2.plot(abs(acc_mag_right))
-ax2.plot(stationary_right,'tab:orange')
-ax2.axhline(y=stationaryThreshold, color='black', linestyle='--')
-ax2.set_title('Right stationary periods')
-ax2.set_xlabel('samples')
-ax2.set_ylabel('acceleration magnitude')
-ax2.legend(['acc mag', 'stationary', 'threshold'])
+def subtract_grav(acc_mag_left, acc_mag_right, fs = 1000):
+    #subtract gravity via calibration from magnitude signal
+    avg_left = np.mean(acc_mag_left[:10*fs])
+    avg_right = np.mean(acc_mag_right[:10*fs])
+    
+    acc_mag_left = acc_mag_left - avg_left 
+    acc_mag_right = acc_mag_right - avg_right
+    return acc_mag_left, acc_mag_right
 
 
-
-#Determine stationary periods - gyr mag zero velocity
-
-stationaryThreshold2 = 50
-stationary_left2 = 1*(abs(gyr_mag_left) < stationaryThreshold2)
-stationary_right2 = 1*(abs(gyr_mag_right) < stationaryThreshold2)
-
-#left foot
-stepStart_left2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left2) ) ) == -1) 
-stepEnd_left2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left2) ) ) == 1)
-
-for i in range(0,len(stepStart_left2)-2):
-    if (stepEnd_left2[i,0] - stepStart_left2[i,0] < adjustmentWindow):
-        for j in range(stepStart_left2[i,0],stepEnd_left2[i,0]):
-            stationary_left2[j] = 1
-    if (stepStart_left2[i+1,0] - stepEnd_left2[i,0] < adjustmentWindow):
-        for j in range(stepEnd_left2[i,0],stepStart_left2[i+1,0]):
-            stationary_left2[j] = 1
-
-stepStart_left2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left2) ) ) == -1) 
-stepEnd_left2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left2) ) ) == 1)
-
-#right foot
-stepStart_right2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_right2) ) ) == -1) 
-stepEnd_right2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_right2) ) ) == 1)
-
-for i in range(0,len(stepStart_right2)-2):
-    if (stepEnd_right2[i,0] - stepStart_right2[i,0] < adjustmentWindow):
-        for j in range(stepStart_right2[i,0],stepEnd_right2[i,0]):
-            stationary_right2[j] = 1
-    if (stepStart_right2[i+1,0] - stepEnd_right2[i,0] < adjustmentWindow):
-        for j in range(stepEnd_right2[i,0],stepStart_right2[i+1,0]):
-            stationary_right2[j] = 1
-
-stepStart_right2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_right2) ) ) == -1) 
-stepEnd_right2 = np.argwhere(np.concatenate( ( [0], np.diff(stationary_right2) ) ) == 1)
-
-#angular rate energy graph
-fig, (ax3, ax4) = plt.subplots(2)
-fig.suptitle('stationary periods - angular velocity mag')
-
-ax3.plot(abs(gyr_mag_left))
-ax3.plot(stationary_left2,'tab:orange')
-ax3.axhline(y=stationaryThreshold2, color='black', linestyle='--')
-#ax3.ylim([0, 10])
-ax3.set_title('Left stationary periods')
-ax3.set_xlabel('samples')
-ax3.set_ylabel('gyroscope magnitude')
-ax3.legend(['acc mag', 'stationary', 'threshold'])
-
-ax4.plot(abs(gyr_mag_right))
-ax4.plot(stationary_right2,'tab:orange')
-ax4.axhline(y=stationaryThreshold2, color='black', linestyle='--')
-#ax4.ylim([0, 10])
-ax4.set_title('Right stationary periods')
-ax4.set_xlabel('samples')
-ax4.set_ylabel('gyroscope magnitude')
-ax4.legend(['acc mag', 'stationary', 'threshold'])
+def zero_vel_acc(acc_mag_left, acc_mag_right, stationaryThreshold = 0.25, adjustmentWindow = 150):
+    ##Determine stationary periods - accel mag zero velocity
+    stationary_left = 1*(abs(acc_mag_left) < stationaryThreshold)
+    stationary_right = 1*(abs(acc_mag_right) < stationaryThreshold)
+    
+    
+    #left foot
+    stepStart_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == -1) 
+    stepEnd_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == 1)
+    
+    for i in range(0,len(stepStart_left)-2): 
+        if (stepEnd_left[i,0] - stepStart_left[i,0] < adjustmentWindow):
+            for j in range(stepStart_left[i,0],stepEnd_left[i,0]):
+                stationary_left[j] = 1
+    
+    stepStart_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == -1) 
+    stepEnd_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == 1)
+    
+    for i in range(0,len(stepStart_left)-2): 
+        if (stepStart_left[i+1,0] - stepEnd_left[i,0] < adjustmentWindow):
+            for j in range(stepEnd_left[i,0],stepStart_left[i+1,0]):
+                stationary_left[j] = 0
+    
+    stepStart_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == -1) 
+    stepEnd_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == 1)
+    
+    
+    #right foot
+    stepStart_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == -1) 
+    stepEnd_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == 1) 
+    
+    for i in range(0,len(stepStart_right)-2): 
+        if (stepEnd_right[i,0] - stepStart_right[i,0] < adjustmentWindow): 
+            for j in range(stepStart_right[i,0],stepEnd_right[i,0]):
+                stationary_right[j] = 1
+    
+    stepStart_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == -1) 
+    stepEnd_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == 1) 
+    
+    for i in range (0,len(stepStart_right)-2):
+        if (stepStart_right[i+1,0] - stepEnd_right[i,0] < adjustmentWindow):
+            for j in range(stepEnd_right[i,0],stepStart_right[i+1,0]):
+                stationary_right[j] = 0
+    
+    stepStart_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == -1) 
+    stepEnd_right = np.argwhere(np.concatenate( ([0], np.diff(stationary_right))) == 1) 
+    
+    return stationary_left, stationary_right
 
 
-
-#Calculation of Step Counts
-
-#linear acceleration method
-leftSteps1 = sum(np.diff(stationary_left)==1)-1
-rightSteps1 = sum(np.diff(stationary_right)==1)-1
-totalSteps1 = sum(np.diff(stationary_left)==1) + sum(np.diff(stationary_right)==1)-2
-
-#angular velocity energy method
-leftSteps2 = sum(np.diff(stationary_left2)==1)-1
-rightSteps2 = sum(np.diff(stationary_right2)==1)-1
-totalSteps2 = sum(np.diff(stationary_left2)==1) + sum(np.diff(stationary_right2)==1)-2
-
-print("Linear Acceleration Method")
-print("Left Steps:", leftSteps1)
-print("Right Steps:", rightSteps1)
-print("Total Steps:", totalSteps1)
-
-print("Angular Velocity Energy Method")
-print("Left Steps:", leftSteps2)
-print("Right Steps:", rightSteps2)
-print("Total Steps:", totalSteps2)
+def plot_acc(acc_mag_left, acc_mag_right, stationary_left, stationary_right, stationaryThreshold = 0.25):
+    #linear Acceleration Plot
+    fig, (ax1, ax2) = plt.subplots(2)
+    fig.suptitle('stationary periods - linear acceleration mag')
+    
+    ax1.plot(abs(acc_mag_left))
+    ax1.plot(stationary_left,'tab:orange')
+    ax1.axhline(y=stationaryThreshold, color='black', linestyle='--')
+    ax1.set_title('Left stationary periods')
+    ax1.set_xlabel('samples')
+    ax1.set_ylabel('acceleration magnitude')
+    ax1.legend(['acc mag', 'stationary', 'threshold'])
+    
+    ax2.plot(abs(acc_mag_right))
+    ax2.plot(stationary_right,'tab:orange')
+    ax2.axhline(y=stationaryThreshold, color='black', linestyle='--')
+    ax2.set_title('Right stationary periods')
+    ax2.set_xlabel('samples')
+    ax2.set_ylabel('acceleration magnitude')
+    ax2.legend(['acc mag', 'stationary', 'threshold'])
 
 
+def zero_vel_gyr(gyr_mag_left, gyr_mag_right, stationaryThreshold = 50, adjustmentWindow = 150):
+    ##Determine stationary periods - gyr mag zero velocity
+    
+    stationary_left = 1*(abs(gyr_mag_left) < stationaryThreshold)
+    stationary_right = 1*(abs(gyr_mag_right) < stationaryThreshold)
+    
+    #left foot
+    stepStart_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == -1) 
+    stepEnd_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == 1)
+    
+    for i in range(0,len(stepStart_left)-2):
+        if (stepEnd_left[i,0] - stepStart_left[i,0] < adjustmentWindow):
+            for j in range(stepStart_left[i,0],stepEnd_left[i,0]):
+                stationary_left[j] = 1
+        if (stepStart_left[i+1,0] - stepEnd_left[i,0] < adjustmentWindow):
+            for j in range(stepEnd_left[i,0],stepStart_left[i+1,0]):
+                stationary_left[j] = 1
+    
+    stepStart_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == -1) 
+    stepEnd_left = np.argwhere(np.concatenate( ( [0], np.diff(stationary_left) ) ) == 1)
+    
+    #right foot
+    stepStart_right = np.argwhere(np.concatenate( ( [0], np.diff(stationary_right) ) ) == -1) 
+    stepEnd_right = np.argwhere(np.concatenate( ( [0], np.diff(stationary_right) ) ) == 1)
+    
+    for i in range(0,len(stepStart_right)-2):
+        if (stepEnd_right[i,0] - stepStart_right[i,0] < adjustmentWindow):
+            for j in range(stepStart_right[i,0],stepEnd_right[i,0]):
+                stationary_right[j] = 1
+        if (stepStart_right[i+1,0] - stepEnd_right[i,0] < adjustmentWindow):
+            for j in range(stepEnd_right[i,0],stepStart_right[i+1,0]):
+                stationary_right[j] = 1
+    
+    stepStart_right = np.argwhere(np.concatenate( ( [0], np.diff(stationary_right) ) ) == -1) 
+    stepEnd_right = np.argwhere(np.concatenate( ( [0], np.diff(stationary_right) ) ) == 1)
+    return stationary_left, stationary_right
+
+
+def plot_gyr(gyr_mag_left, gyr_mag_right, stationary_left, stationary_right, stationaryThreshold = 50):
+    #angular rate energy graph
+    fig, (ax3, ax4) = plt.subplots(2)
+    fig.suptitle('stationary periods - angular velocity mag')
+    
+    ax3.plot(abs(gyr_mag_left))
+    ax3.plot(stationary_left,'tab:orange')
+    ax3.axhline(y=stationaryThreshold, color='black', linestyle='--')
+    #ax3.ylim([0, 10])
+    ax3.set_title('Left stationary periods')
+    ax3.set_xlabel('samples')
+    ax3.set_ylabel('gyroscope magnitude')
+    ax3.legend(['acc mag', 'stationary', 'threshold'])
+    
+    ax4.plot(abs(gyr_mag_right))
+    ax4.plot(stationary_right,'tab:orange')
+    ax4.axhline(y=stationaryThreshold, color='black', linestyle='--')
+    #ax4.ylim([0, 10])
+    ax4.set_title('Right stationary periods')
+    ax4.set_xlabel('samples')
+    ax4.set_ylabel('gyroscope magnitude')
+    ax4.legend(['acc mag', 'stationary', 'threshold'])
+
+
+def step_count(stationary_left, stationary_right, method = ""):
+    ##Calculation of Step Counts
+    leftSteps = sum(np.diff(stationary_left)==1)-1
+    rightSteps = sum(np.diff(stationary_right)==1)-1
+    totalSteps = sum(np.diff(stationary_left)==1) + sum(np.diff(stationary_right)==1)-2
+    
+    if method != "":
+        print(method)
+    
+    print("Left Steps:", leftSteps)
+    print("Right Steps:", rightSteps)
+    print("Total Steps:", totalSteps)
+
+
+#Main
+imu = load_data()
+data = organize_data(imu[0], imu[1])
+
+fs = 1000
+filtCutOff = 200
+order = 1
+filtered_acc = filter_acc_data(data[0], data[1], fs, filtCutOff, order)
+data_mag = rotate_by_quaternions(filtered_acc[0], filtered_acc[1], data[2], data[3])
+acc_mag = subtract_grav(data_mag[0], data_mag[1], fs)
+
+stationaryThreshold = 0.25
+adjustmentWindow = 150
+stationary_acc = zero_vel_acc(acc_mag[0], acc_mag[1], stationaryThreshold, adjustmentWindow)
+plot_acc(acc_mag[0], acc_mag[1], stationary_acc[0], stationary_acc[1], stationaryThreshold)
+
+stationaryThreshold = 50
+adjustmentWindow = 150
+stationary_gyr = zero_vel_gyr(data_mag[2], data_mag[3], stationaryThreshold, adjustmentWindow)
+plot_gyr(data_mag[2], data_mag[3], stationary_gyr[0], stationary_gyr[1], stationaryThreshold)
+
+step_count(stationary_acc[0], stationary_acc[1], "Linear Acceleration Method") #linear acceleration method
+step_count(stationary_gyr[0], stationary_gyr[1], "Angular Velocity Energy Method") #angular velocity energy method
