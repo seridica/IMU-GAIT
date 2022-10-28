@@ -1,6 +1,6 @@
-#Gait Processing Application 
+# Gait Processing Application 
 
-##How to Build:
+## How to Build:
 How to build HMovements:
 •	Open the app with Git Bash
 •	Open the app with Visual Studio or Visual Studio Code
